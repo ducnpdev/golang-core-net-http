@@ -1,280 +1,206 @@
-# Test
+# Practice: Client Transport
 
-run: go run server.go
-run: go run client.go
+Public documentation for using **`http.Transport`** in Go HTTP clients. Configuring Transport is essential for connection reuse, performance, and compatibility with servers that use short **IdleTimeout** (see [IdleTimeout practice](idletimeout.md)).
 
-- output:
+---
+
+## What is Transport?
+
+**`http.Transport`** implements [`http.RoundTripper`](https://pkg.go.dev/net/http#RoundTripper). It manages:
+
+- **Connection pooling** – reuse of TCP connections across requests
+- **Dial and TLS** – how connections are established
+- **Timeouts** – dial, TLS handshake, response headers, idle connection lifetime
+
+When you use `http.Client` without setting `Transport`, the client uses a default Transport with conservative limits (e.g. `DefaultMaxIdleConnsPerHost = 2`). For high concurrency or when talking to servers with short keep-alive (IdleTimeout), a **custom Transport** is recommended.
+
+Request flow:
+
+```text
+Client.Do(req) → Transport.RoundTrip(req) → getConn → dial (or reuse idle conn)
 ```
-ducnp@ip-10-10-181-133 golang-core-net-http % go run cmd/client/main.go 
-===== DEFAULT CLIENT =====
-error: Get "http://localhost:8080/health": read tcp [::1]:64072->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64075->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64078->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64080->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64079->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64076->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64077->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64081->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64082->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64073->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64083->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64085->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64084->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64086->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64087->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64089->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64088->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64090->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64091->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64092->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64093->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64094->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64095->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64096->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64097->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64099->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64098->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64100->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64101->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64102->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64103->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64104->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64105->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64106->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64107->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64108->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64109->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64110->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64111->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64112->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64113->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64114->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64115->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64116->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64117->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64118->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64119->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64120->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64121->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64122->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64123->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64124->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64125->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64127->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64126->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64129->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64128->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64131->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64130->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64133->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64132->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64137->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64136->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64135->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64134->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64142->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64141->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64138->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64140->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:64139->[::1]:8080: read: connection reset by peer
-Total time: 557.81125ms
-RPS: 17927.21
 
-===== TUNED CLIENT =====
-Total time: 365.806542ms
-RPS: 27336.85
+---
 
-===== DEFAULT CLIENT (NO READ BODY) =====
-error: Get "http://localhost:8080/health": read tcp [::1]:56759->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56757->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56753->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56781->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56774->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56772->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56780->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56784->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56800->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56798->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56797->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56794->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56795->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:56796->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:58236->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:58235->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:58234->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:58233->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:58237->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59419->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59403->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59402->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59401->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59400->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59399->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59417->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59394->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59363->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59377->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59393->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59375->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59412->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59408->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59405->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59397->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59396->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59357->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59374->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59364->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59382->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59381->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59390->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59370->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59356->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59386->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59413->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59391->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59416->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59387->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59395->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59406->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59383->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59366->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59407->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59389->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59392->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59388->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59368->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59369->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59385->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59367->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59371->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59384->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59376->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59365->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59359->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59379->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59415->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59380->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59378->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59362->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59361->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59360->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59372->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59414->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59410->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59411->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59409->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59358->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59373->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59404->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:59398->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60012->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60011->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60010->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60007->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60008->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60009->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60006->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60005->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60004->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60002->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60000->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60001->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60003->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": write tcp [::1]:61038->[::1]:8080: write: broken pipe
-error: Get "http://localhost:8080/health": read tcp [::1]:61039->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61032->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61036->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61026->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61023->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61021->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61018->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61016->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60979->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61007->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60998->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60996->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60995->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60994->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60993->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60992->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61042->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60989->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60991->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60997->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60990->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60988->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60987->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60986->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60985->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60984->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60983->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60982->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60981->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60980->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60978->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:60977->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61041->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62141->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62229->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62243->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62159->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62292->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62291->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62195->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62286->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62189->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62187->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62180->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62181->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62267->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62262->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62255->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62173->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62171->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62148->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62146->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62144->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62254->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62218->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62217->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62213->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62221->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62204->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62202->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62230->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:62232->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50914->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50494->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": write tcp [::1]:50951->[::1]:8080: write: broken pipe
-error: Get "http://localhost:8080/health": read tcp [::1]:50480->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50488->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50477->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50501->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50902->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50502->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50970->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:50911->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": read tcp [::1]:61202->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61204->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": read tcp [::1]:61076->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": read tcp [::1]:62213->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp 127.0.0.1:51057->127.0.0.1:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp [::1]:61117->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": read tcp [::1]:62286->[::1]:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": dial tcp [::1]:8080: connect: resource temporarily unavailable
-error: Get "http://localhost:8080/health": read tcp 127.0.0.1:51055->127.0.0.1:8080: read: connection reset by peer
-error: Get "http://localhost:8080/health": read tcp 127.0.0.1:51060->127.0.0.1:8080: read: connection reset by peer
-Total time: 1.349238333s
-RPS: 7411.59
+## Deep dive: observing Transport (instrumented client)
+
+The project includes an **instrumented client** that logs Transport behavior so you can see connection reuse, new dials, and when connections are closed. Code: [`cmd/client/instrument_client/main.go`](../cmd/client/instrument_client/main.go).
+
+### How it works
+
+1. **`httptrace.ClientTrace`** – Hooks into the Transport lifecycle for each request:
+   - **GetConn(hostPort)** – Transport is about to get a connection (from pool or new dial).
+   - **GotConn(info)** – A connection was obtained; `info.Reused` is `true` if it came from the idle pool, `false` if newly dialed.
+   - **PutIdleConn(err)** – After the response is done, Transport puts the connection back to the idle pool; if `err != nil`, the connection was not reused (e.g. server closed it).
+   - **ConnectStart** / **ConnectDone** – Actual TCP connect start and finish (only when a new connection is created).
+
+2. **Custom `DialContext`** – Wraps the real dialer and logs **`NEW TCP DIAL`** only when Transport actually opens a new TCP connection (no idle conn available).
+
+3. **`loggedConn`** – Wraps `net.Conn` and logs **`TCP CLOSED`** when the connection is closed (by server, by Transport after use, or when the pool discards it).
+
+### Flow mapped to Transport
+
+```text
+Request starts
+    → GetConn(hostPort)           "I need a conn for this host"
+    → [Transport tries idle pool]
+        → If idle conn found:
+            → GotConn(Reused: true)
+        → If not:
+            → ConnectStart        (TCP dial starts)
+            → NEW TCP DIAL        (our DialContext)
+            → ConnectDone
+            → GotConn(Reused: false)
+    → RoundTrip runs (request/response)
+    → Response body closed
+    → PutIdleConn(err)            "Put conn back to pool" (err=nil) or "could not reuse" (err≠nil)
+    → If conn actually closed:    TCP CLOSED (our wrapper)
 ```
+
+So: **GetConn** = “need conn”; **GotConn(reused)** = “got one (from pool or new)”; **PutIdleConn** = “done with conn, back to pool or closed”; **NEW TCP DIAL** / **TCP CLOSED** = real TCP open/close.
+
+### Transport config in the instrumented client
+
+```go
+tr := &http.Transport{
+    MaxIdleConns:        100,
+    MaxIdleConnsPerHost: 5,        // small so you see both reuse and new dials
+    IdleConnTimeout:     30 * time.Second,
+    DialContext:         func(...) (net.Conn, error) { ... },  // logs NEW TCP DIAL
+}
+```
+
+With **concurrency 5** and **MaxIdleConnsPerHost: 5**, the first 5 requests cause new dials; later requests reuse those connections (GotConn reused: true, no NEW TCP DIAL). If the server has a short IdleTimeout, you may see **PutIdleConn** with `err != nil` and **TCP CLOSED** when the server closes the connection.
+
+### How to run and interpret
+
+1. Start the server (short IdleTimeout for demo):
+   ```bash
+   go run cmd/server/main.go
+   ```
+2. In another terminal, run the instrumented client:
+   ```bash
+   go run cmd/client/instrument_client/main.go
+   ```
+
+Look for:
+
+- **GotConn reused: false** + **NEW TCP DIAL** → new connection.
+- **GotConn reused: true** (no dial) → connection from pool.
+- **PutIdleConn: &lt;nil&gt;** → connection returned to pool.
+- **PutIdleConn: &lt;err&gt;** or **TCP CLOSED** → connection not reused (e.g. server closed it or pool full).
+
+This gives a concrete view of **getConn → idle vs dial → use → put back** inside Transport.
+
+---
+
+## Why configure Transport?
+
+1. **Connection reuse** – Default client keeps only 2 idle connections per host. Under concurrency this leads to many new connections and more “connection reset” / “broken pipe” when the server closes idle connections (e.g. short IdleTimeout).
+2. **Performance** – More idle connections per host and sensible timeouts reduce dials and improve RPS when the server allows keep-alive.
+3. **Alignment with server** – If the server uses a short `IdleTimeout`, the client should use a larger pool and an `IdleConnTimeout` that matches or is lower than the server’s idle window, so the client does not hold connections the server has already closed.
+
+---
+
+## Key Transport fields
+
+| Field | Purpose | Typical / default |
+|-------|---------|--------------------|
+| `MaxIdleConns` | Max idle connections **total** (all hosts) | 100 |
+| `MaxIdleConnsPerHost` | Max idle connections **per host** | 2 (default); raise for high concurrency (e.g. 50–200) |
+| `MaxConnsPerHost` | Max **total** connections per host (0 = unlimited) | 0 or cap (e.g. 100) |
+| `IdleConnTimeout` | How long idle connections stay in the pool | 90s default; can match or be &lt; server IdleTimeout |
+| `DialContext` | How TCP (and optionally TLS) connections are created | Set for dial timeout (e.g. 30s) |
+| `TLSHandshakeTimeout` | Max time for TLS handshake | 10s |
+| `ResponseHeaderTimeout` | Max time to wait for response headers | 10s |
+| `ExpectContinueTimeout` | Max time for 100-Continue | 1s |
+
+Official reference: [net/http.Transport](https://pkg.go.dev/net/http#Transport).
+
+---
+
+## Example: tuned client
+
+This project uses a tuned client in [`cmd/client/main.go`](../cmd/client/main.go) to cope with a server that has **short IdleTimeout** (1s) and high concurrency:
+
+```go
+func tunedClient() *http.Client {
+    tr := &http.Transport{
+        MaxIdleConns:        500,
+        MaxIdleConnsPerHost: 200,
+        MaxConnsPerHost:     0,
+        IdleConnTimeout:     30 * time.Second,
+    }
+    return &http.Client{
+        Transport: tr,
+        Timeout:   5 * time.Second,
+    }
+}
+```
+
+- **MaxIdleConnsPerHost: 200** – allows many idle connections per host so that under 200 concurrent goroutines, connections can be reused instead of opening new ones.
+- **IdleConnTimeout: 30s** – client drops idle connections after 30s; if server IdleTimeout is 1s, the server will often close first, but the larger pool still reduces the impact of those closures.
+- **Client.Timeout** – overall per-request timeout (dial + request + response body).
+
+Always **read and close** the response body (`io.Copy(io.Discard, resp.Body)` then `resp.Body.Close()`) so the connection can be returned to the pool.
+
+---
+
+## Best practices
+
+1. **Reuse one Transport (and Client)** – Create a single `Transport` and reuse it; it is safe for concurrent use and holds the connection pool.
+2. **Close response bodies** – Call `resp.Body.Close()` (or drain the body) so connections can be reused; otherwise you get leaks and “connection reset” when the server closes the connection.
+3. **Set both Transport timeouts and Client.Timeout** – Use Transport for phase-specific limits (dial, TLS, headers) and `Client.Timeout` as an overall cap.
+4. **Tune per host** – For a small set of hosts and high concurrency, increase `MaxIdleConnsPerHost` (and optionally `MaxConnsPerHost`) to match your concurrency and server IdleTimeout.
+
+---
+
+## Relation to server IdleTimeout
+
+When the **server** uses a short **IdleTimeout** (e.g. 1s):
+
+- The server closes connections that have been idle for that duration.
+- A **default** client (only 2 idle conns per host) opens many new connections and often hits connections that the server has already closed → `read: connection reset by peer`, `write: broken pipe`.
+- A **tuned** client with a larger `MaxIdleConnsPerHost` and appropriate `IdleConnTimeout` reuses connections more effectively and finishes more requests successfully, improving RPS and reducing errors.
+
+See [IdleTimeout practice](idletimeout.md) for the server side and the benchmark notes there.
+
+---
+
+## References
+
+- [net/http.Transport](https://pkg.go.dev/net/http#Transport)
+- [net/http.Client](https://pkg.go.dev/net/http#Client)
+- [net/http/httptrace](https://pkg.go.dev/net/http/httptrace) – ClientTrace for observing Transport (GetConn, GotConn, PutIdleConn, etc.)
+- [DefaultMaxIdleConnsPerHost](https://pkg.go.dev/net/http#DefaultMaxIdleConnsPerHost) (value 2)
+- [IdleTimeout practice](idletimeout.md) – server-side keep-alive and experiments
+
+---
+
+## Test / benchmark (this project)
+
+From the project root:
+
+1. Start the server (uses short IdleTimeout for demo):
+   ```bash
+   go run cmd/server/main.go
+   ```
+2. Run the client (default vs tuned):
+   ```bash
+   go run cmd/client/main.go
+   ```
+
+You should see:
+
+- **Default client** – more errors (`connection reset by peer`, `broken pipe`) and lower RPS.
+- **Tuned client** – fewer errors and higher RPS (e.g. ~27k vs ~18k in the included runs).
+
+The client code compares default `http.Client{}` and `tunedClient()` against the same server to illustrate the impact of Transport configuration when the server has a short IdleTimeout.
+
+**Observe Transport lifecycle (deep dive):** Run the instrumented client to see GetConn, GotConn (reused or not), PutIdleConn, and when TCP dial/close happen:
+
+```bash
+go run cmd/client/instrument_client/main.go
+```
+
+See [Deep dive: observing Transport](#deep-dive-observing-transport-instrumented-client) above for how to interpret the output.
